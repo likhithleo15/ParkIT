@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Smart Parking | Register Vehicle</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app-shell">
+  {% include 'sidebar.html' %}
+  <main class="main-area">
+    <header class="topbar">
+      <div>
+        <h1>Register Vehicle</h1>
+        <p class="topbar-subtitle">Add regular vehicles & assign plots</p>
+      </div>
+      <div class="topbar-user-pill">
+        <div class="avatar-circle">{{ session.username[:1]|upper }}</div>
+        <div class="user-meta">
+          <span class="user-name">{{ session.username }}</span>
+          <span class="user-role">Security</span>
+        </div>
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flashes mb-16">
+        {% for cat, msg in messages %}
+          <li class="{{cat}}">{{ msg }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <section class="card form-card">
+      <h2>Regular Vehicle Registration</h2>
+      <p class="subtext">Registered vehicles are treated as regular and get regular plots.</p>
+
+      <form method="post" class="form-grid two-col">
+        <label>Plate Number
+          <input name="plate" placeholder="ABC123" required>
+        </label>
+        <label>Owner Name
+          <input name="owner" placeholder="John Doe">
+        </label>
+        <label>Assign Regular Plot (optional)
+          <select name="assigned_plot">
+            <option value="">Auto choose empty regular plot</option>
+            {% for p in regular_plots %}
+            <option value="{{p}}">{{ p }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <div></div>
+        <button type="submit" class="btn-primary full-width mt-8">Register Vehicle</button>
+      </form>
+    </section>
+  </main>
+</div>
+</body>
+</html>

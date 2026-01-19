@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Smart Parking | Manual Override</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app-shell">
+  {% include 'sidebar.html' %}
+  <main class="main-area">
+    <header class="topbar">
+      <div>
+        <h1>Manual Override</h1>
+        <p class="topbar-subtitle">Force assign or free plots when needed</p>
+      </div>
+      <div class="topbar-user-pill">
+        <div class="avatar-circle">{{ session.username[:1]|upper }}</div>
+        <div class="user-meta">
+          <span class="user-name">{{ session.username }}</span>
+          <span class="user-role">Security</span>
+        </div>
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flashes mb-16">
+        {% for cat, msg in messages %}
+          <li class="{{cat}}">{{ msg }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <section class="cards-grid">
+      <div class="card form-card">
+        <h2>Manual Arrival</h2>
+        <p class="subtext">Force-assign a plate to a specific plot.</p>
+        <form method="post" class="form-grid">
+          <input type="hidden" name="action" value="enter_plate">
+          <label>Plate Number
+            <input name="plate" required placeholder="ABC123">
+          </label>
+          <label>Choose Plot
+            <select name="chosen_plot" required>
+              <option value="">-- select plot --</option>
+              {% for p in plots %}
+                <option value="{{ p['plot_no'] }}">
+                  #{{ p['plot_no'] }} – {{ p['type'] }} – {{ p['status'] }}
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+          <button type="submit" class="btn-primary full-width mt-8">Assign Plot</button>
+        </form>
+      </div>
+
+      <div class="card form-card">
+        <h2>Free a Plot</h2>
+        <p class="subtext">Manually set a plot back to EMPTY.</p>
+        <form method="post" class="form-grid">
+          <input type="hidden" name="action" value="free_plot">
+          <label>Choose Plot to Free
+            <select name="chosen_plot_free" required>
+              <option value="">-- select plot --</option>
+              {% for p in plots %}
+                <option value="{{ p['plot_no'] }}">
+                  #{{ p['plot_no'] }} – {{ p['type'] }} – {{ p['status'] }}
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+          <button type="submit" class="btn-secondary full-width mt-16">Free Plot</button>
+        </form>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>

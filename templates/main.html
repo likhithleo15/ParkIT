@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Smart Parking | Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app-shell">
+  {% include 'sidebar.html' %}
+  <main class="main-area">
+    <header class="topbar">
+      <div>
+        <h1>Parking Overview(GATE-1)</h1>
+        <p class="topbar-subtitle">Live status of slots & registrations</p>
+      </div>
+      <div class="topbar-user-pill">
+        <div class="avatar-circle">{{ session.username[:1]|upper }}</div>
+        <div class="user-meta">
+          <span class="user-name">{{ session.username }}</span>
+          <span class="user-role">Security</span>
+        </div>
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flashes mb-16">
+        {% for cat, msg in messages %}
+          <li class="{{cat}}">{{ msg }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    {% set ns = namespace(occupied=0, visitor_used=0, regular_used=0) %}
+    {% for p in plots %}
+      {% if p['status'] == 'IN USE' %}
+        {% set ns.occupied = ns.occupied + 1 %}
+        {% if p['type'] == 'visitor' %}
+          {% set ns.visitor_used = ns.visitor_used + 1 %}
+        {% else %}
+          {% set ns.regular_used = ns.regular_used + 1 %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+    {% set free = total - ns.occupied %}
+
+    <section class="cards-row">
+      <div class="card metric-card primary">
+        <span class="metric-label">Total Slots</span>
+        <span class="metric-value">{{ total }}</span>
+        <span class="metric-pill">Configured</span>
+      </div>
+      <div class="card metric-card green">
+        <span class="metric-label">Slots in Use</span>
+        <span class="metric-value">{{ ns.occupied }}</span>
+        <span class="metric-pill">Live</span>
+      </div>
+      <div class="card metric-card blue">
+        <span class="metric-label">Free Slots</span>
+        <span class="metric-value">{{ free }}</span>
+        <span class="metric-pill">Available</span>
+      </div>
+      <div class="card metric-card purple">
+        <span class="metric-label">Registered Vehicles</span>
+        <span class="metric-value">{{ regs|length }}</span>
+        <span class="metric-pill">Regular</span>
+      </div>
+    </section>
+
+    <section class="cards-grid">
+      <div class="card large-card">
+        <div class="card-header-row">
+          <h2>Slot Occupancy(Designed for RVS)</h2>
+          <span class="pill-soft">Visitor vs Regular</span>
+        </div>
+        <div class="dual-metric">
+          <div>
+            <h3>Visitor in Use</h3>
+            <p class="dual-value">{{ ns.visitor_used }}</p>
+            <p class="dual-sub">Slots 1 - {{ visitor_count }}</p>
+          </div>
+          <div>
+            <h3>Regular in Use</h3>
+            <p class="dual-value">{{ ns.regular_used }}</p>
+            <p class="dual-sub">Slots {{ visitor_count + 1 }} - {{ total }}</p>
+          </div>
+        </div>
+
+        <div class="mini-legend">
+          <span class="legend-dot visitor"></span> Visitor
+          <span class="legend-dot regular"></span> Regular
+          <span class="legend-dot empty"></span> Empty
+        </div>
+
+        <div class="plots-scroll">
+          {% for p in plots %}
+            <div class="plot-pill
+              {% if p['status']=='IN USE' and p['type']=='visitor' %}visitor
+              {% elif p['status']=='IN USE' and p['type']=='regular' %}regular
+              {% else %}empty{% endif %}">
+              <span>#{{ p['plot_no'] }}</span>
+              <span>{{ p['type'] }}</span>
+              <span>{{ p['status'] }}</span>
+              <span>{{ p['plate'] or '-' }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="card side-card">
+        <div class="card-header-row">
+          <h2>Quick Actions</h2>
+        </div>
+        <div class="quick-actions">
+          <a href="{{ url_for('arrival') }}" class="qa-item">
+            <div class="qa-icon badge-primary">IN</div>
+            <div>
+              <div class="qa-title">Arrival Gate</div>
+              <div class="qa-sub">Auto assign visitor/regular slots</div>
+            </div>
+          </a>
+          <a href="{{ url_for('departure') }}" class="qa-item">
+            <div class="qa-icon badge-green">OUT</div>
+            <div>
+              <div class="qa-title">Departure Gate</div>
+              <div class="qa-sub">Free plot when vehicle exits</div>
+            </div>
+          </a>
+          <a href="{{ url_for('register') }}" class="qa-item">
+            <div class="qa-icon badge-purple">R</div>
+            <div>
+              <div class="qa-title">Register Vehicle</div>
+              <div class="qa-sub">Assign regular plots to tenants</div>
+            </div>
+          </a>
+          <a href="{{ url_for('history') }}" class="qa-item">
+            <div class="qa-icon badge-blue">H</div>
+            <div>
+              <div class="qa-title">View History</div>
+              <div class="qa-sub">Track all arrivals & departures</div>
+            </div>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>

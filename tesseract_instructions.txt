@@ -1,0 +1,20 @@
+Tesseract OCR installation (required for plate recognition):
+
+Windows:
+1. Download and install Tesseract from:
+   https://github.com/tesseract-ocr/tesseract/releases (choose the appropriate exe)
+2. After install, note the install path, e.g. C:\Program Files\Tesseract-OCR\tesseract.exe
+3. In your environment or in app.py set pytesseract.pytesseract.tesseract_cmd to that path.
+
+macOS:
+1. Install via Homebrew:
+   brew install tesseract
+
+Linux (Ubuntu):
+1. sudo apt update
+2. sudo apt install tesseract-ocr libtesseract-dev
+
+After installation, verify:
+$ tesseract --version
+
+If Tesseract is not available, the app will still run but ANPR OCR will fail; you'll be able to use manual entry fallback.

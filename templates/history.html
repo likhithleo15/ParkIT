@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Smart Parking | History</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app-shell">
+  {% include 'sidebar.html' %}
+  <main class="main-area">
+    <header class="topbar">
+      <div>
+        <h1>Parking History</h1>
+        <p class="topbar-subtitle">Recent arrivals & departures</p>
+      </div>
+      <div class="topbar-user-pill">
+        <div class="avatar-circle">{{ session.username[:1]|upper }}</div>
+        <div class="user-meta">
+          <span class="user-name">{{ session.username }}</span>
+          <span class="user-role">Security</span>
+        </div>
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flashes mb-16">
+        {% for cat, msg in messages %}
+          <li class="{{cat}}">{{ msg }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <section class="card">
+      <div class="card-header-row">
+        <h2>Last 500 Events</h2>
+        <a href="{{ url_for('export_csv') }}" class="btn-secondary small">Download CSV</a>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+          <tr>
+            <th>Time</th>
+            <th>Action</th>
+            <th>Plate</th>
+            <th>Plot</th>
+            <th>Operator</th>
+            <th>Notes</th>
+          </tr>
+          </thead>
+          <tbody>
+          {% for r in rows %}
+            <tr>
+              <td>{{ r['timestamp'] }}</td>
+              <td>{{ r['action'] }}</td>
+              <td>{{ r['plate'] or '-' }}</td>
+              <td>{{ r['plot_no'] or '-' }}</td>
+              <td>{{ r['operator'] or '-' }}</td>
+              <td>{{ r['notes'] or '-' }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>

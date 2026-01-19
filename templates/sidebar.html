@@ -1,0 +1,43 @@
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">P</div>
+    <div>
+      <div class="logo-title">ParkIT</div>
+      <div class="logo-subtitle">SP Lot Manager</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">MENU</div>
+    <a href="{{ url_for('main') }}"
+       class="nav-link {% if request.endpoint == 'main' %}active{% endif %}">
+      <span class="nav-icon">🏠</span> Dashboard
+    </a>
+    <a href="{{ url_for('arrival') }}"
+       class="nav-link {% if request.endpoint == 'arrival' %}active{% endif %}">
+      <span class="nav-icon">🚗</span> Arrival Gate
+    </a>
+    <a href="{{ url_for('departure') }}"
+       class="nav-link {% if request.endpoint == 'departure' %}active{% endif %}">
+      <span class="nav-icon">🚙</span> Departure Gate
+    </a>
+
+    <div class="nav-section-label mt-16">TOOLS</div>
+    <a href="{{ url_for('register') }}"
+       class="nav-link {% if request.endpoint == 'register' %}active{% endif %}">
+      <span class="nav-icon">📝</span> Register Vehicle
+    </a>
+    <a href="{{ url_for('manual') }}"
+       class="nav-link {% if request.endpoint == 'manual' %}active{% endif %}">
+      <span class="nav-icon">🎛️</span> Manual Override
+    </a>
+    <a href="{{ url_for('history') }}"
+       class="nav-link {% if request.endpoint == 'history' %}active{% endif %}">
+      <span class="nav-icon">📊</span> History
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <a href="{{ url_for('logout') }}" class="btn-ghost full-width">Logout</a>
+  </div>
+</aside>

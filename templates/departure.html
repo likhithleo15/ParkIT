@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Smart Parking | Departure Gate</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app-shell">
+  {% include 'sidebar.html' %}
+  <main class="main-area">
+    <header class="topbar">
+      <div>
+        <h1>Departure Gate</h1>
+        <p class="topbar-subtitle">Detect exiting vehicles & free their plots</p>
+      </div>
+      <div class="topbar-user-pill">
+        <div class="avatar-circle">{{ session.username[:1]|upper }}</div>
+        <div class="user-meta">
+          <span class="user-name">{{ session.username }}</span>
+          <span class="user-role">Security</span>
+        </div>
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flashes mb-16">
+        {% for cat, msg in messages %}
+          <li class="{{cat}}">{{ msg }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <section class="camera-layout card">
+      <div class="camera-main">
+        <div class="camera-header-row">
+          <h2>Camera & ANPR</h2>
+          <div class="camera-controls">
+            <span class="switch-label">Auto capture</span>
+            <label class="switch">
+              <input type="checkbox" id="autoToggle" checked>
+              <span class="slider round"></span>
+            </label>
+            <button type="button" class="btn-secondary" id="restartCameraBtn">Restart Camera</button>
+          </div>
+        </div>
+        <div class="video-wrapper">
+          <video id="video" autoplay muted playsinline></video>
+          <div class="video-overlay">Waiting for camera...</div>
+        </div>
+        <div class="camera-action-row">
+          <button type="button" class="btn-primary" id="manualCaptureBtn">
+            Capture &amp; Send to ANPR
+          </button>
+          <span class="hint-text">System automatically captures when motion is detected (5s cooldown).</span>
+        </div>
+        <canvas id="smallCanvas" style="display:none;"></canvas>
+        <canvas id="canvas" style="display:none;"></canvas>
+      </div>
+
+      <div class="camera-side">
+        <div class="status-box">
+          <div class="status-title">Status</div>
+          <div id="statusText" class="status-text status-idle">Initializing camera...</div>
+          <div class="status-meta">
+            <div>Last plate: <span id="statusPlate" class="status-pill">-</span></div>
+            <div>Plot freed: <span id="statusPlot" class="status-pill">-</span></div>
+            <div>Mode: <span id="statusMode" class="status-pill">Auto</span></div>
+          </div>
+        </div>
+
+        <div class="card sub-card">
+          <h3>Manual Departure (Fallback)</h3>
+          <p class="subtext">Use this if ANPR fails to read the plate.</p>
+          <form method="post" action="{{ url_for('departure') }}" class="form-grid">
+            <input type="hidden" name="mode" value="manual">
+            <label>Plate Number
+              <input name="manual_plate" placeholder="ABC123" required>
+            </label>
+            <button type="submit" class="btn-primary full-width">Process Departure Manually</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <audio id="beepAudio" src="{{ url_for('static', filename='beep.mp3') }}" preload="auto"></audio>
+  </main>
+</div>
+
+<script>
+  let stream = null;
+  let video = null;
+  let smallCanvas = null;
+  let smallCtx = null;
+  let captureCanvas = null;
+  let captureCtx = null;
+  let prevImageData = null;
+  let detectionInterval = null;
+  let cooldown = false;
+  let autoEnabled = true;
+
+  const statusTextEl = document.getElementById('statusText');
+  const statusPlateEl = document.getElementById('statusPlate');
+  const statusPlotEl = document.getElementById('statusPlot');
+  const statusModeEl = document.getElementById('statusMode');
+  const beepAudio = document.getElementById('beepAudio');
+
+  function setStatus(message, type) {
+    statusTextEl.textContent = message;
+    statusTextEl.className = 'status-text ' + (type || 'status-info');
+  }
+
+  async function startCamera() {
+    video = document.getElementById('video');
+    smallCanvas = document.getElementById('smallCanvas');
+    smallCtx = smallCanvas.getContext('2d');
+    captureCanvas = document.getElementById('canvas');
+    captureCtx = captureCanvas.getContext('2d');
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+      video.srcObject = stream;
+      await video.play();
+      document.querySelector('.video-overlay').textContent = 'Camera live. Waiting for vehicle...';
+      setStatus('Camera live. Auto-capture enabled.', 'status-ok');
+      startDetectionLoop();
+    } catch (err) {
+      setStatus('Unable to access camera: ' + err.message, 'status-error');
+    }
+  }
+
+  function startDetectionLoop() {
+    const smallWidth = 320;
+    const smallHeight = Math.round(video.videoHeight * (smallWidth / (video.videoWidth || 1)));
+    smallCanvas.width = smallWidth;
+    smallCanvas.height = smallHeight;
+
+    if (detectionInterval) clearInterval(detectionInterval);
+    detectionInterval = setInterval(() => {
+      if (!autoEnabled) return;
+      tryDetectAndMaybeCapture(true);
+    }, 400);
+  }
+
+  function tryDetectAndMaybeCapture(fromAuto) {
+    if (cooldown) return;
+    if (!video || video.paused || video.ended) return;
+
+    smallCtx.drawImage(video, 0, 0, smallCanvas.width, smallCanvas.height);
+    const imageData = smallCtx.getImageData(0, 0, smallCanvas.width, smallCanvas.height);
+    const diffScore = computeFrameDiffScore(imageData, prevImageData);
+    prevImageData = imageData;
+
+    const THRESHOLD = 18;
+    if (fromAuto && diffScore > THRESHOLD) {
+      doHighResCaptureAndSend(true);
+    }
+  }
+
+  function computeFrameDiffScore(imgA, imgB) {
+    if (!imgB) return 0;
+    const dataA = imgA.data;
+    const dataB = imgB.data;
+    const len = dataA.length;
+    let sum = 0;
+    let count = 0;
+    for (let i = 0; i < len; i += 16) {
+      const aR = dataA[i], aG = dataA[i + 1], aB = dataA[i + 2];
+      const bR = dataB[i], bG = dataB[i + 1], bB = dataB[i + 2];
+      const ga = 0.299 * aR + 0.587 * aG + 0.114 * aB;
+      const gb = 0.299 * bR + 0.587 * bG + 0.114 * bB;
+      sum += Math.abs(ga - gb);
+      count++;
+    }
+    return sum / count;
+  }
+
+  async function doHighResCaptureAndSend(fromAuto) {
+    if (!video || !video.videoWidth) {
+      setStatus('Camera not ready yet.', 'status-info');
+      return;
+    }
+    cooldown = true;
+    statusModeEl.textContent = fromAuto ? 'Auto' : 'Manual';
+    setStatus((fromAuto ? 'Auto' : 'Manual') + ' capture in progress...', 'status-info');
+
+    const targetWidth = 1200;
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    const scale = Math.min(1, targetWidth / vw);
+    captureCanvas.width = Math.round(vw * scale);
+    captureCanvas.height = Math.round(vh * scale);
+    captureCtx.drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height);
+
+    const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.75);
+
+    try {
+      const form = new FormData();
+      form.append('image_data', dataUrl);
+      const resp = await fetch('{{ url_for("departure_api") }}', {
+        method: 'POST',
+        body: form,
+        credentials: 'same-origin'
+      });
+      const j = await resp.json();
+      console.log('Departure API:', j);
+
+      if (j.plate) {
+        statusPlateEl.textContent = j.plate;
+      }
+      if (j.plot_no !== undefined) {
+        statusPlotEl.textContent = j.plot_no;
+      }
+
+      if (j.status === 'departed') {
+        setStatus(j.message, 'status-ok');
+        try { beepAudio.currentTime = 0; beepAudio.play(); } catch (e) {}
+      } else if (j.status === 'no_plate') {
+        setStatus('No plate detected. You can try manual entry.', 'status-warn');
+      } else {
+        setStatus(j.message || 'Processed frame.', 'status-info');
+      }
+    } catch (err) {
+      console.error('Error sending capture:', err);
+      setStatus('Error sending capture: ' + err.message, 'status-error');
+    }
+
+    setTimeout(() => {
+      cooldown = false;
+      setStatus('Ready. Waiting for next vehicle...', 'status-ok');
+    }, 5000);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    startCamera();
+
+    document.getElementById('restartCameraBtn').addEventListener('click', () => {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      startCamera();
+    });
+
+    document.getElementById('autoToggle').addEventListener('change', (e) => {
+      autoEnabled = e.target.checked;
+      statusModeEl.textContent = autoEnabled ? 'Auto' : 'Manual';
+      setStatus(autoEnabled ? 'Auto-capture enabled.' : 'Auto-capture disabled. Use manual capture.', autoEnabled ? 'status-ok' : 'status-info');
+    });
+
+    document.getElementById('manualCaptureBtn').addEventListener('click', () => {
+      doHighResCaptureAndSend(false);
+    });
+  });
+
+  window.addEventListener('beforeunload', () => {
+    if (detectionInterval) clearInterval(detectionInterval);
+    if (stream) stream.getTracks().forEach(t => t.stop());
+  });
+</script>
+</body>
+</html>

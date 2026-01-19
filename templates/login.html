@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Smart Parking | Security Login</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="login-body">
+  <div class="login-wrapper">
+    <div class="login-card">
+      <div class="login-logo">ParkIT <span>SP Lot Manager</span></div>
+      <h2>Security Login</h2>
+      <p class="login-subtext">Sign in to access the parking dashboard.</p>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <ul class="flashes">
+          {% for cat, msg in messages %}
+            <li class="{{cat}}">{{ msg }}</li>
+          {% endfor %}
+          </ul>
+        {% endif %}
+      {% endwith %}
+
+      <form method="post" class="form-grid">
+        <label>Username
+          <input name="username" required>
+        </label>
+        <label>Password
+          <input name="password" type="password" required>
+        </label>
+        <button type="submit" class="btn-primary full-width">Login</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
